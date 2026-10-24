@@ -69,11 +69,11 @@ def run_calibration_audit(config_path: str | None = None) -> dict:
     print("=" * 70)
 
     # 1. Validation predictions
-    print("Extracting validation predictions (8,143 images)...")
+    print(f"Extracting validation predictions ({len(val_df):,} images)...")
     val_targets, val_probs = extract_predictions(model, val_loader, device)
 
     # 2. Test predictions
-    print("Extracting held-out test predictions (8,143 images)...")
+    print(f"Extracting held-out test predictions ({len(test_df):,} images)...")
     test_targets, test_probs = extract_predictions(model, test_loader, device)
 
     # 3. Calibration metrics

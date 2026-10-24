@@ -195,7 +195,7 @@ def audit_full_dataset(
             # Calculate pixel MAE
             mae = compute_pixel_mae(path_a, path_b)
 
-            match_type = "exact_perceptual_collision" if dist == 0 else "near_duplicate"
+            match_type = "hash_collision" if dist == 0 else "near_match"
             is_same_class = (cls_a == cls_b)
 
             flagged_records.append({
@@ -214,10 +214,15 @@ def audit_full_dataset(
 
     df_matches = pd.DataFrame(flagged_records)
     if not df_matches.empty:
-        df_matches = df_matches.sort_values(by=["hamming_distance", "pixel_mae"])
+        df_matches = df_matches.sort_values(by=["hamming_distance", "pixel_mae"]).reset_index(drop=True)
 
     exact_collisions = int((df_matches["hamming_distance"] == 0).sum()) if not df_matches.empty else 0
     near_matches = int((df_matches["hamming_distance"] > 0).sum()) if not df_matches.empty else 0
+
+    # Explicit MAE breakdown across all flagged pairs
+    mae_le_15 = int((df_matches["pixel_mae"] <= 15.0).sum()) if not df_matches.empty else 0
+    mae_15_to_20 = int(((df_matches["pixel_mae"] > 15.0) & (df_matches["pixel_mae"] <= 20.0)).sum()) if not df_matches.empty else 0
+    mae_gt_20 = int((df_matches["pixel_mae"] > 20.0).sum()) if not df_matches.empty else 0
 
     # Categorize likely duplicates by split pair
     train_test_dupes = 0
@@ -241,8 +246,14 @@ def audit_full_dataset(
         "audit_coverage_percent": 100.0,
         "max_hamming_distance_evaluated": max_hamming_dist,
         "candidate_pairs_checked": len(candidate_pairs),
-        "exact_perceptual_collisions_cross_split": exact_collisions,
+        "hash_collisions_cross_split": exact_collisions,
         "near_matches_cross_split": near_matches,
+        "mae_distribution": {
+            "le_15_count": mae_le_15,
+            "between_15_and_20_count": mae_15_to_20,
+            "gt_20_count": mae_gt_20,
+            "total_pairs": len(df_matches),
+        },
         "likely_duplicates_breakdown": {
             "train_vs_test_leakage": train_test_dupes,
             "train_vs_val_leakage": train_val_dupes,
@@ -250,7 +261,7 @@ def audit_full_dataset(
             "total_likely_duplicates": train_test_dupes + train_val_dupes + val_test_dupes,
         },
         "train_to_test_leakage_free": (train_test_dupes == 0),
-        "split_integrity_verified": (train_test_dupes == 0),
+        "split_integrity_verified": (train_test_dupes == 0 and val_test_dupes == 0),
     }
 
     return df_matches, summary
@@ -283,9 +294,13 @@ def main() -> None:
     print(f"  - Train:                                {summary['scanned_counts']['train']:,}")
     print(f"  - Val:                                  {summary['scanned_counts']['val']:,}")
     print(f"  - Test:                                 {summary['scanned_counts']['test']:,}")
-    print(f"Exact Perceptual Collisions Across Splits: {summary['exact_perceptual_collisions_cross_split']}")
-    print(f"Near-Matches (Hamming <= {args.max_hamming_dist}) Across Splits:   {summary['near_matches_cross_split']}")
-    print(f"Likely Duplicates Breakdown:")
+    print(f"Perceptual Hash Collisions (Hamming=0):   {summary['hash_collisions_cross_split']}")
+    print(f"Near-Matches (Hamming <= {args.max_hamming_dist}):             {summary['near_matches_cross_split']}")
+    print(f"MAE Breakdown Across Flagged Pairs:")
+    print(f"  - MAE <= 15.0 (Likely Duplicates):      {summary['mae_distribution']['le_15_count']}")
+    print(f"  - 15.0 < MAE <= 20.0 (Intermediate):    {summary['mae_distribution']['between_15_and_20_count']}")
+    print(f"  - MAE > 20.0 (Distinct Leaves):         {summary['mae_distribution']['gt_20_count']}")
+    print(f"Likely Duplicates Breakdown (MAE <= 15.0):")
     print(f"  - Train vs Test Leakage:                {summary['likely_duplicates_breakdown']['train_vs_test_leakage']}")
     print(f"  - Train vs Val Leakage:                 {summary['likely_duplicates_breakdown']['train_vs_val_leakage']}")
     print(f"  - Val vs Test Overlap:                  {summary['likely_duplicates_breakdown']['val_vs_test_overlap']}")

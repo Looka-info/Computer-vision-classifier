@@ -1,20 +1,26 @@
 {
   "scanned_counts": {
     "train": 37998,
-    "val": 8143,
-    "test": 8143,
+    "val": 8153,
+    "test": 8133,
     "total": 54284
   },
   "audit_coverage_percent": 100.0,
   "max_hamming_distance_evaluated": 1,
-  "candidate_pairs_checked": 2290490,
-  "exact_perceptual_collisions_cross_split": 6,
-  "near_matches_cross_split": 23,
+  "candidate_pairs_checked": 2289941,
+  "hash_collisions_cross_split": 6,
+  "near_matches_cross_split": 22,
+  "mae_distribution": {
+    "le_15_count": 1,
+    "between_15_and_20_count": 1,
+    "gt_20_count": 26,
+    "total_pairs": 28
+  },
   "likely_duplicates_breakdown": {
     "train_vs_test_leakage": 0,
     "train_vs_val_leakage": 1,
-    "val_vs_test_overlap": 1,
-    "total_likely_duplicates": 2
+    "val_vs_test_overlap": 0,
+    "total_likely_duplicates": 1
   },
   "train_to_test_leakage_free": true,
   "split_integrity_verified": true

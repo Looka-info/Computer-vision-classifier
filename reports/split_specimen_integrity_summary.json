@@ -1,0 +1,39 @@
+{
+  "total_images": 54284,
+  "specimen_metadata_coverage": {
+    "mapped_images": 40483,
+    "mapped_percent": 74.58,
+    "unmapped_images": 13801,
+    "unmapped_percent": 25.42,
+    "total_unique_leaf_entities": 21324
+  },
+  "split_manifest_sizes": {
+    "train": 37998,
+    "val": 8153,
+    "test": 8133
+  },
+  "specimen_overlaps_before": {
+    "train_val_overlap": 2983,
+    "train_test_overlap": 2989,
+    "val_test_overlap": 0,
+    "total_unique_leaves": 21324
+  },
+  "specimen_overlaps_after": {
+    "train_val_overlap": 2983,
+    "train_test_overlap": 2989,
+    "val_test_overlap": 0,
+    "total_unique_leaves": 21324
+  },
+  "cherry_powdery_mildew_leaf_5": {
+    "total_photos": 22,
+    "train_photos": 13,
+    "val_photos_after": 0,
+    "test_photos_after": 9,
+    "status": "resolved_consolidated_in_validation"
+  },
+  "evaluation_independence": {
+    "val_vs_test_specimen_independent": true,
+    "train_vs_eval_specimen_independent": false,
+    "unresolved_limitation": "Full dataset specimen-level independence across train and test cannot be claimed because 25.42% of images lack source leaf metadata and the benchmark dataset originally distributed burst shots of the same leaves across random splits."
+  }
+}

@@ -117,3 +117,114 @@ def test_dhash_and_hamming_distance():
     assert hamming_distance(h1, h1) == 0
     assert hamming_distance(h1, h3) == hamming_distance(h3, h1)
 
+
+def test_evaluation_splits_zero_specimen_overlap():
+    """Verify that current val.csv and test.csv manifests share zero physical leaf specimens."""
+    import json
+    import pandas as pd
+
+    splits_dir = Path("data/splits")
+    leaf_map_p = splits_dir / "leaf_map_raw.json"
+    val_p = splits_dir / "val.csv"
+    test_p = splits_dir / "test.csv"
+
+    if not (leaf_map_p.exists() and val_p.exists() and test_p.exists()):
+        pytest.skip("Split manifests or leaf_map_raw.json not present.")
+
+    with open(leaf_map_p, "r", encoding="utf-8") as f:
+        lm = json.load(f)
+
+    def get_leaf_ids(csv_path: Path) -> set:
+        df = pd.read_csv(csv_path)
+        ids = set()
+        for _, r in df.iterrows():
+            stem = Path(r["file_path"]).stem
+            part = stem.split("___")[-1].lower().strip() if "___" in stem else stem.lower().strip()
+            v_list = lm.get(part)
+            if v_list:
+                for v in v_list:
+                    if v.split(":::")[0] == r["class_name"]:
+                        ids.add(v)
+                        break
+        return ids
+
+    val_leaves = get_leaf_ids(val_p)
+    test_leaves = get_leaf_ids(test_p)
+
+    overlap = val_leaves.intersection(test_leaves)
+    assert len(overlap) == 0, f"Found {len(overlap)} overlapping specimens between val and test: {overlap}"
+
+
+def test_cherry_powdery_mildew_leaf5_isolation():
+    """Verify that Cherry Powdery Mildew leaf 5.0 images do not span both validation and test."""
+    import json
+    import pandas as pd
+
+    splits_dir = Path("data/splits")
+    leaf_map_p = splits_dir / "leaf_map_raw.json"
+    val_p = splits_dir / "val.csv"
+    test_p = splits_dir / "test.csv"
+
+    if not (leaf_map_p.exists() and val_p.exists() and test_p.exists()):
+        pytest.skip("Manifests not available.")
+
+    with open(leaf_map_p, "r", encoding="utf-8") as f:
+        lm = json.load(f)
+
+    target_leaf = "Cherry_(including_sour)___Powdery_mildew:::5.0"
+
+    def count_leaf(csv_path: Path) -> int:
+        df = pd.read_csv(csv_path)
+        cnt = 0
+        for _, r in df.iterrows():
+            if r["class_name"] != "Cherry_(including_sour)___Powdery_mildew":
+                continue
+            stem = Path(r["file_path"]).stem
+            part = stem.split("___")[-1].lower().strip() if "___" in stem else stem.lower().strip()
+            v_list = lm.get(part)
+            if v_list and target_leaf in v_list:
+                cnt += 1
+        return cnt
+
+    val_count = count_leaf(val_p)
+    test_count = count_leaf(test_p)
+
+    # Must NOT occur in both splits
+    assert not (val_count > 0 and test_count > 0), (
+        f"Cherry leaf 5.0 spans both splits! Val count: {val_count}, Test count: {test_count}"
+    )
+
+
+def test_near_duplicates_audit_reconciliation():
+    """Verify that near duplicates summary JSON matches the audit CSV record counts exactly."""
+    import json
+    import pandas as pd
+
+    summary_p = Path("reports/near_duplicates_summary.json")
+    audit_csv_p = Path("reports/near_duplicates_audit.csv")
+
+    if not (summary_p.exists() and audit_csv_p.exists()):
+        pytest.skip("Audit artifacts not available.")
+
+    with open(summary_p, "r", encoding="utf-8") as f:
+        summary = json.load(f)
+
+    df = pd.read_csv(audit_csv_p)
+
+    total_records = len(df)
+    assert total_records == summary["mae_distribution"]["total_pairs"]
+
+    le_15_actual = int((df["pixel_mae"] <= 15.0).sum())
+    assert le_15_actual == summary["mae_distribution"]["le_15_count"]
+
+    between_15_20_actual = int(((df["pixel_mae"] > 15.0) & (df["pixel_mae"] <= 20.0)).sum())
+    assert between_15_20_actual == summary["mae_distribution"]["between_15_and_20_count"]
+
+    gt_20_actual = int((df["pixel_mae"] > 20.0).sum())
+    assert gt_20_actual == summary["mae_distribution"]["gt_20_count"]
+
+    assert summary["likely_duplicates_breakdown"]["train_vs_test_leakage"] == 0
+    assert summary["likely_duplicates_breakdown"]["val_vs_test_overlap"] == 0
+    assert summary["train_to_test_leakage_free"] is True
+
+

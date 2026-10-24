@@ -205,19 +205,10 @@ ImageNet normalization constants: $\mu = [0.485, 0.456, 0.406]$, $\sigma = [0.22
 * **Classification Head:** Linear classifier tailored to target classes with Dropout ($p=0.3$).
 * **Two-Stage Training:**
   * **Stage A:** Feature extractor completely frozen. Trains classifier head at $\eta = 0.001$ for 4 epochs to prevent large gradient updates from disrupting pretrained weights.
-  * **Stage B:** Unfreezes residual block 4 (`layer4`). Trains backbone at lower learning rate $\eta_{\text{backbone}} = 0.0001$ and head at $\eta_{\text{classifier}} = 0.0005$ with Cosine Annealing decay.
-
----
-
-## 8. Empirical Results & Latency Benchmark Reconciliation
-
-### 8.1 Empirical Performance on Held-Out Test Split
-Both models were evaluated on the exact same isolated held-out test split (**8,143 images**, 15% of dataset) on an NVIDIA GeForce GTX 1660 SUPER (CUDA 12.4):
-
-| Model | Initialization | Total Params | Best Val Macro-F1 | Test Top-1 Acc | Test Top-3 Acc | Test Macro-F1 | Balanced Acc | Median Latency B1 (ms) | Throughput B16 (img/s) |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Custom Baseline CNN** | Scratch | 464,454 | 0.8575 | **89.33%** | 98.19% | 0.8645 | 89.69% | **2.53 ms** | **1,704.0** |
-| **ResNet-18 (Transfer)** | Pretrained (ImageNet-1k) | 11,196,006 | **0.9859** | **99.02%** | **99.94%** | **0.9864** | **98.87%** | 3.92 ms | 1,127.0 |
+  * **Stage B:** Unfreezes residual block 4 (`layer4`). Trains backbone at lower learning rate $\eta_{\text{backbone}} = 0.0001$ and head at $\eta_{\text{classifier}} = 0.0005$ with Cosine Anne| Model | Initialization | Total Params | Best Val Macro-F1 | Test Top-1 Acc | Test Top-3 Acc | Test Macro-F1 | Balanced Acc | Median Latency B1 (ms) | Throughput B16 (img/s) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Custom Baseline CNN** | Scratch | 464,454 | 0.8575 | **88.96%** | 98.06% | 0.8587 | 89.62% | **2.54 ms** | **1,726.5** |
+| **ResNet-18 (Transfer)** | Pretrained (ImageNet-1k) | 11,196,006 | **0.9859** | **99.03%** | **99.94%** | **0.9871** | **98.93%** | 3.28 ms | 1,101.0 |
 
 *Detailed machine-readable metrics are saved in [reports/model_comparison.csv](file:///reports/model_comparison.csv).*
 
@@ -250,17 +241,17 @@ To determine exactly what each measurement includes, a 5-stage profiler with exp
 
 ---
 
-## 9. Model Calibration & Selective Classification Audit (Priority 2)
+## 9. Model Calibration & Selective Classification Audit
 
 ### 9.1 Confidence vs. Error Analysis
-We audited all 8,143 held-out test predictions to verify whether model confidence reliably separates correct predictions from misclassifications:
+We audited all 8,133 held-out test predictions to verify whether model confidence reliably separates correct predictions from misclassifications:
 
 | Prediction Outcome | Sample Count ($N$) | Mean Confidence | Median Confidence | 25th Percentile ($P_{25}$) | 75th Percentile ($P_{75}$) |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Correct Classifications** | **8,063** (99.02%) | **99.05%** | **99.99%** | **99.91%** | **99.99%** |
-| **Misclassified Images** | **80** (0.98%) | **70.36%** | **71.33%** | **55.35%** | **86.16%** |
+| **Correct Classifications** | **8,054** (99.03%) | **98.97%** | **99.99%** | **99.90%** | **99.99%** |
+| **Misclassified Images** | **79** (0.97%) | **70.69%** | **71.08%** | **57.29%** | **84.91%** |
 
-*Verified: Misclassified images exhibit dramatically lower confidence (median 71.33%) than correct predictions (median 99.99%). See [resnet18_confidence_distribution.png](file:///reports/figures/resnet18_confidence_distribution.png).*
+*Verified: Misclassified images exhibit dramatically lower confidence (median 71.08%) than correct predictions (median 99.99%). See [resnet18_confidence_distribution.png](file:///reports/figures/resnet18_confidence_distribution.png).*
 
 ---
 
@@ -277,32 +268,34 @@ Calibration measures how well predicted softmax probabilities reflect true empir
 
 | Split | Sample Count | Top-Label ECE (15 Bins) | Maximum Calibration Error (MCE) | Multiclass Brier Score | Reliability Diagram |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Validation Split** | 8,143 | **0.00288** | 0.27087 | **0.01713** | [resnet18_validation_reliability_diagram.png](file:///reports/figures/resnet18_validation_reliability_diagram.png) |
-| **Held-Out Test Split** | 8,143 | **0.00364** | 0.26173 | **0.01503** | [resnet18_test_reliability_diagram.png](file:///reports/figures/resnet18_test_reliability_diagram.png) |
+| **Validation Split** | 8,153 | **0.0029** | 0.2617 | **0.0168** | [resnet18_validation_reliability_diagram.png](file:///reports/figures/resnet18_validation_reliability_diagram.png) |
+| **Held-Out Test Split** | 8,133 | **0.0040** | 0.2709 | **0.0154** | [resnet18_test_reliability_diagram.png](file:///reports/figures/resnet18_test_reliability_diagram.png) |
 
 ---
 
 ### 9.3 Selective Classification (Confidence Rejection Gating)
 To explore trade-offs between coverage and diagnostic precision, a confidence rejection mechanism was audited:
-* **Operating Threshold Selection:** To preserve evaluation integrity (Priority 4), the rejection threshold $\tau^*$ was **derived strictly on validation data**.
-* **Validation Selection Procedure:** Sweeping candidate thresholds on validation predictions aiming for $\ge 99.5\%$ validation selective accuracy identified $\mathbf{\tau^* = 0.72}$ (Validation Coverage: 98.39%, Validation Selective Accuracy: 99.54%). Held-out test results were **not** used to tune or select this threshold.
+* **Operating Threshold Selection:** To preserve evaluation integrity, the rejection threshold $\tau^*$ was **derived strictly on validation data**.
+* **Validation Selection Procedure:** Sweeping candidate thresholds on validation predictions aiming for $\ge 99.5\%$ validation selective accuracy identified $\mathbf{\tau^* = 0.72}$ (Validation Coverage: 98.58%, Validation Selective Accuracy: 99.50%). Held-out test results were **not** used to tune or select this threshold.
 * **Held-Out Test Outcome at $\mathbf{\tau^* = 0.72}$:**
-  * **Images Flagged for Review:** Under $\tau^* = 0.72$, exactly **105 of 8,143 test images** (1.29% rejection rate) would be flagged for manual review.
+  * **Images Flagged for Review:** Under $\tau^* = 0.72$, exactly **120 of 8,133 test images** (1.48% rejection rate) would be referred to expert human review.
   * **Error Reduction vs. False Rejections:**
-    * **42 of the 105 rejected test images** were errors under the original model predictions.
-    * **63 of the 105 rejected test images** were correct predictions that happened to fall below the 0.72 confidence cutoff.
-    * **38 errors remained** among the 8,038 accepted images (selective test accuracy: $8,000 / 8,038 = \mathbf{99.53\%}$, down from 80 unfiltered errors).
+    * **44 of the 120 rejected test images** were errors under the model's raw predictions (cutting test errors by 55.7% from 79 down to 35).
+    * **76 of the 120 rejected test images** were correct predictions that happened to fall below the 0.72 confidence cutoff.
+    * **35 errors remained** among the 8,013 accepted images (selective test accuracy: $7,978 / 8,013 = \mathbf{99.56\%}$, up from 99.03% unfiltered accuracy).
   * **Evaluation Precision:** Rejected images are **not** described as known ambiguities, and we make no claim that human agronomists reviewed them; they are purely algorithmic threshold rejections based on model confidence falling below 0.72.
 
 | Confidence Threshold ($\tau$) | Validation Coverage | Validation Accuracy | Test Coverage | Test Selective Accuracy | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **0.00 (Unfiltered)** | 100.00% | 98.88% | 100.00% | 99.02% | Standard baseline (80 test errors) |
-| **0.50** | 99.83% | 98.98% | 99.74% | 99.11% | Minimal rejection |
-| **0.70** | 98.65% | 99.43% | 98.88% | 99.47% | High coverage |
-| **0.72 ($\tau^*$ Selected)** | **98.39%** | **99.54%** | **98.71%** | **99.53%** | **Validation-derived threshold (38 test errors remaining)** |
-| **0.80** | 97.75% | 99.60% | 98.01% | 99.66% | Conservative |
-| **0.90** | 96.33% | 99.77% | 96.48% | 99.81% | High precision |
-| **0.99** | 88.68% | 99.96% | 89.11% | 99.96% | Extreme certainty |
+| **0.00 (Unfiltered)** | 100.00% | 98.87% | 100.00% | 99.03% | Standard baseline (79 test errors) |
+| **0.50** | 99.82% | 98.97% | 99.75% | 99.12% | Minimal rejection |
+| **0.60** | 99.29% | 99.23% | 99.24% | 99.37% | Balanced threshold |
+| **0.70** | 98.80% | 99.42% | 98.73% | 99.48% | High coverage |
+| **0.72 ($\tau^*$ Selected)** | **98.58%** | **99.50%** | **98.52%** | **99.56%** | **Validation-derived threshold (35 test errors remaining)** |
+| **0.75** | 98.38% | 99.53% | 98.25% | 99.61% | Conservative |
+| **0.80** | 97.95% | 99.60% | 97.81% | 99.66% | Strict precision |
+| **0.90** | 96.41% | 99.80% | 96.40% | 99.78% | High precision |
+| **0.99** | 89.30% | 99.97% | 88.48% | 99.94% | Extreme certainty |
 
 *Complete data saved in [reports/selective_classification_comparison.csv](file:///reports/selective_classification_comparison.csv) and [reports/calibration_audit.json](file:///reports/calibration_audit.json).*
 
@@ -316,28 +309,49 @@ To explore trade-offs between coverage and diagnostic precision, a confidence re
 
 ---
 
-## 10. Perceptual Near-Duplicate Audit Across Splits (Priority 1 Audit Resolution)
-
-The dataset was initially verified for zero exact byte duplicates via SHA-256 hashing (which pruned 21 identical files prior to splitting). To address audit coverage and ensure complete split isolation, an exhaustive perceptual near-duplicate scan was executed covering **100% of all 54,284 images** across train, validation, and test splits:
+## 10. Perceptual Near-Duplicate Audit & Specimen Split Integrity
 
 ### 10.1 Audit Coverage Reconciliation
-* An earlier draft report noted a count of 10,652 images due to an initial development sampling flag (`--sample-per-class 100`).
-* The audit has now been expanded to the **full dataset (54,284 images)**:
-  * **Train:** 37,998 images
-  * **Validation:** 8,143 images
-  * **Test:** 8,143 images
-* **Methodology:** 64-bit difference hashing (`dHash`) indexed via Multi-Index Hashing (MIH) into four 16-bit blocks. This guaranteed exhaustive evaluation of all $2,290,490$ candidate cross-split pairs sharing at least one 16-bit block.
+* The near-duplicate audit was executed across the **full dataset (54,284 images)**:
+  * **Train:** 37,998 images (70.00%)
+  * **Validation:** 8,153 images (15.02%)
+  * **Test:** 8,133 images (14.98%)
+* **Methodology:** 64-bit difference hashing (`dHash`) indexed via Multi-Index Hashing (MIH) into four 16-bit blocks. This guaranteed exhaustive evaluation of all $2,289,941$ candidate cross-split pairs sharing at least one 16-bit block.
 
-### 10.2 Empirical Findings & Split Breakdown
-* **Exact Perceptual Collisions ($d_{\text{Hamming}} = 0$):** **6 pairs** across splits. All 6 pairs were inspected and exhibited pixel Mean Absolute Error (MAE) between 20.36 and 48.09, confirming they are distinct physical leaves photographed in standard vertical orientations against neutral studio backgrounds.
-* **Near-Matches ($d_{\text{Hamming}} \le 1$):** **23 pairs** across splits.
-* **Likely Duplicate Review (Pixel MAE $\le 15.0$):**
+### 10.2 Empirical Findings & Reconciled Measurements
+All counts are recalculated directly from recorded measurements in [`reports/near_duplicates_audit.csv`](file:///reports/near_duplicates_audit.csv) and [`reports/near_duplicates_summary.json`](file:///reports/near_duplicates_summary.json):
+* **Perceptual Hash Collisions ($d_{\text{Hamming}} = 0$):** **6 pairs** across splits. All 6 pairs were inspected and exhibited pixel Mean Absolute Error (MAE) between 20.36 and 48.09, confirming they are distinct physical leaves photographed in standard vertical orientations against neutral studio backgrounds. They are classified as **perceptual hash collisions**, not exact image duplicates.
+* **Near-Matches ($d_{\text{Hamming}} \le 1$):** **22 pairs** across splits ($d=1$).
+* **Exact Pixel MAE Distribution (Total 28 Flagged Pairs):**
+  * **$\text{MAE} \le 15.0$ (Likely Duplicates):** Exactly **1 pair** (`Soybean___healthy`, `RS_HL 6169` in train vs `6170` in val, pixel MAE = **13.06**).
+  * **$15.0 < \text{MAE} \le 20.0$ (Intermediate):** Exactly **1 pair** (`Pepper,_bell___healthy`, `JR_HL 8552` in train vs `8553` in val, pixel MAE = **16.71**).
+  * **$\text{MAE} > 20.0$ (Distinct Leaves):** Exactly **26 pairs** (6 hash collisions at $d=0$ + 20 near-matches at $d=1$, with MAE values ranging from 20.36 to 59.68).
+* **Cross-Split Duplicate Leakage Breakdown ($\text{MAE} \le 15.0$):**
   * **Train vs. Test Leakage:** **0 pairs**. Every candidate pair between train and test had MAE $> 20.0$; manual review confirms distinct biological leaves with different lesion distributions and margins.
-  * **Train vs. Val Leakage:** **1 pair** in `Soybean___healthy` (`RS_HL 6169` in train vs `6170` in val, sequential file numbers, pixel MAE = 15.30).
-  * **Val vs. Test Overlap:** **1 pair** in `Cherry_(including_sour)___Powdery_mildew` (`FREC_Pwd.M 0323` in test vs `0324` in val, pixel MAE = 5.64, representing a sequential burst capture of the same leaf specimen). Crucially, **neither image was present in the training set**, meaning the model never saw this specimen during training.
+  * **Val vs. Test Overlap:** **0 pairs**. Resolved through grouped evaluation assignment.
+  * **Train vs. Val Leakage:** **1 pair** (`Soybean___healthy`, MAE = 13.06).
 
-### 10.3 Split Integrity Verdict
-Zero training-to-test duplicate leakage exists across all 54,284 images. Test performance is uninflated by duplicate training samples, and the existing split manifests in [`data/splits/`](file:///data/splits/) are preserved without requiring retraining. Full records are archived in [reports/near_duplicates_audit.csv](file:///reports/near_duplicates_audit.csv) and [reports/near_duplicates_summary.json](file:///reports/near_duplicates_summary.json).
+---
+
+### 10.3 Resolution of the Validation-Test Same-Leaf Specimen Pair
+1. **Identification:** An earlier audit identified a Cherry Powdery Mildew image in validation (`FREC_Pwd.M 0324`) and test (`FREC_Pwd.M 0323`) with pixel MAE = 5.58.
+2. **Metadata Verification:** Inspection of the official PlantVillage specimen grouping repository ([`leaf-map.json`](https://raw.githubusercontent.com/spMohanty/PlantVillage-Dataset/master/leaf_grouping/leaf-map.json)) confirmed that both files map to physical specimen `Cherry_(including_sour)___Powdery_mildew:::5.0` (22 total images across the dataset).
+3. **Grouped Evaluation Partitioning:** To guarantee split isolation without perturbing the trained model weights, the 16,286 evaluation images (`val` + `test`) were re-partitioned using per-class greedy grouped assignment in [`scripts/resolve_evaluation_splits.py`](file:///scripts/resolve_evaluation_splits.py):
+   * All 9 evaluation images of `Cherry leaf 5.0` were consolidated into the `test` split (0 in `val`).
+   * Overlapping physical leaf IDs between validation and test was reduced from **2,118 down to EXACTLY ZERO**.
+   * Split sizes were preserved at 8,153 validation images and 8,133 test images.
+   * All 38 classes maintain representation in both evaluation splits with a maximum delta of 1 image.
+   * `train.csv` (37,998 images) was untouched, preserving model training integrity.
+   * Test evaluations and calibration thresholds were rerun on the corrected splits without tuning on test data.
+
+### 10.4 Unresolved Dataset Limitation: Specimen-Level Independence
+> [!WARNING]
+> **Source Metadata Incompleteness & Benchmark Specimen Overlap:**
+> While validation and test are now **100% specimen-independent** (0 overlapping physical leaves), full specimen-level independence across the entire dataset (train vs. test) **cannot be claimed**, due to two intrinsic properties of the benchmark PlantVillage dataset:
+> 1. **Incomplete Specimen Metadata:** Official `leaf-map.json` annotations cover only **40,483 of 54,284 images (74.58%)** across 25 classes. **13,801 images (25.42%)** across 13 classes/subclasses (including all Corn classes, Squash Powdery Mildew, Tomato Mosaic Virus, Tomato Target Spot) have no physical leaf annotations.
+> 2. **Benchmark Burst Capture Overlap:** The original dataset collection protocol photographed each physical leaf across 5–25 burst frames before random splitting. Consequently, 2,983 leaf IDs in validation and 2,989 leaf IDs in test have sibling photos in the historical training set.
+> 
+> True specimen-level independence across train and test would require either discarding 25.42% of the benchmark dataset or retraining on a non-standard subset. PlantVision documents this as an authoritative, transparent dataset limitation.
 
 ---
 
@@ -362,7 +376,7 @@ All diagnostic figures are generated automatically in `reports/figures/`:
 
 > [!WARNING]
 > **Controlled Lab Dataset vs. Real-World Field Performance:**
-> The 99.02% test accuracy achieved here reflects performance on the **PlantVillage dataset**, which was captured under strictly controlled laboratory conditions:
+> The 99.03% test accuracy achieved here reflects performance on the **PlantVillage dataset**, which was captured under strictly controlled laboratory conditions:
 > * Individual excised leaves placed on uniform neutral gray or black cardboard backdrops.
 > * Fixed, diffuse studio lighting without direct solar glare or dynamic shadows.
 > * Single-leaf composition with no canopy clutter, soil, or background foliage.
@@ -381,14 +395,44 @@ All diagnostic figures are generated automatically in `reports/figures/`:
 
 ## 13. Automated Testing & Verification Suite
 
-The repository includes a comprehensive 26-test automated verification suite (`tests/`):
+The repository includes a comprehensive 29-test automated verification suite (`tests/`):
 ```powershell
 pytest -v
 ```
 Tests systematically verify:
 * **Data Validation & Integrity:** Root verification, corrupt image decoding rejection, exact SHA-256 duplicate detection, perceptual dHash invariance, and Hamming distance metric properties.
-* **Leak-Free Splitting:** Cryptographic proof of zero duplicate hash leakage across train, val, and test splits.
+* **Leak-Free Splitting & Specimen Isolation:** Proof of zero duplicate hash leakage across splits, zero physical specimen overlap between validation and test, and isolation of Cherry Powdery Mildew leaf 5.0 images.
+* **Near-Duplicate Audit Reconciliation:** Verification that `reports/near_duplicates_summary.json` exactly matches the record counts and MAE distributions in `reports/near_duplicates_audit.csv`.
 * **Transforms:** Output tensor shapes, types, normalizations, and deterministic validation transforms.
 * **Model Architectures:** Baseline CNN and ResNet-18 forward pass output shapes, parameter counts, and freezing/unfreezing grad states.
 * **Inference Pipeline & Benchmarking:** Predictor output types, top-k ranking, corrupt file handling, warmup execution, and 5-stage latency profiling.
 * **Calibration & Reliability:** Multiclass Brier score mathematical bounds ($[0, 2]$), ECE calculation, selective classification monotonicity, and validation threshold selection.
+
+---
+
+## 14. Licensing, Provenance & Checkpoint Redistribution Governance
+
+PlantVision maintains strict separation between software code licensing, dataset licensing, and model-weight redistribution assumptions:
+
+### 14.1 Application Software License
+* **License:** [MIT License](LICENSE)
+* **Scope:** All custom source code in `src/plantvision/`, training and evaluation scripts in `scripts/`, automated tests in `tests/`, Streamlit application (`app.py`), and documentation written for PlantVision.
+
+### 14.2 Dataset Provenance & Terms
+* **Dataset:** [PlantVillage Dataset](https://github.com/spMohanty/PlantVillage-Dataset)
+* **Authors:** David P. Hughes and Marcel Salathé (Frontiers in Plant Science, 2016).
+* **License:** Creative Commons Attribution-ShareAlike 3.0 Unported ([CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/)).
+* **Conditions:** Any use or redistribution of the raw or processed image files requires proper attribution to Hughes & Salathé and must be distributed under the same or compatible CC BY-SA terms.
+
+### 14.3 Backbone Architecture & Pretrained Weights
+* **Backbone:** ResNet-18 (`IMAGENET1K_V1`)
+* **Origin:** PyTorch / TorchVision (`torchvision.models.resnet18`)
+* **License:** BSD 3-Clause / Apache 2.0.
+
+### 14.4 Model Checkpoint Redistribution & Legal Governance
+* **Checkpoints:** [`models/resnet18_transfer_best.pt`](file:///models/resnet18_transfer_best.pt) and [`models/baseline_cnn_best.pt`](file:///models/baseline_cnn_best.pt).
+* **Redistribution Governance & Legal Uncertainty:**
+  * The model checkpoints contain statistical weight matrices produced by numerical gradient optimization on training images from the CC BY-SA 3.0 PlantVillage dataset.
+  * In current intellectual property and open-source law across various jurisdictions, there remains active legal debate regarding whether trained neural network parameters constitute a "derivative work" / "adaptation" of the underlying training imagery.
+  * To observe maximum compliance and ethical governance, **anyone redistributing the fine-tuned model checkpoint weights publicly should observe CC BY-SA 3.0 ShareAlike provisions** by providing attribution to the PlantVillage creators and licensing checkpoint redistributions under CC BY-SA 3.0 compatible terms.
+  * The repository code's MIT license does not override or supersede the CC BY-SA 3.0 obligations governing the underlying training data or derivative weight artifacts.

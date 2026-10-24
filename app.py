@@ -124,19 +124,36 @@ def main():
 
     with col_input:
         st.subheader("1. Input Leaf Image")
-        uploaded_file = st.file_uploader(
-            "Upload an image of a plant leaf (.jpg, .jpeg, .png)",
-            type=["jpg", "jpeg", "png"],
-            help="Upload a clear photograph of a single plant leaf.",
-        )
+        input_source = st.radio("Choose Image Source:", ["Select Demo Sample", "Upload Leaf Image"], horizontal=True)
 
         image_to_process = None
-        if uploaded_file is not None:
-            try:
-                image_to_process = Image.open(uploaded_file)
-                st.image(image_to_process, caption="Uploaded Leaf Image", use_container_width=True)
-            except Exception as e:
-                st.error(f"Error loading image: {e}")
+
+        if input_source == "Select Demo Sample":
+            sample_dir = Path("data/sample_images")
+            sample_files = sorted(list(sample_dir.glob("*.jpg"))) if sample_dir.exists() else []
+            if sample_files:
+                sample_options = {f.stem.replace("_", " ").title(): f for f in sample_files}
+                selected_sample_label = st.selectbox("Select a test leaf image:", list(sample_options.keys()))
+                chosen_path = sample_options[selected_sample_label]
+                try:
+                    image_to_process = Image.open(chosen_path)
+                    st.image(image_to_process, caption=f"Sample: {selected_sample_label}", use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error loading sample image: {e}")
+            else:
+                st.info("No sample images found in `data/sample_images`.")
+        else:
+            uploaded_file = st.file_uploader(
+                "Upload an image of a plant leaf (.jpg, .jpeg, .png)",
+                type=["jpg", "jpeg", "png"],
+                help="Upload a clear photograph of a single plant leaf.",
+            )
+            if uploaded_file is not None:
+                try:
+                    image_to_process = Image.open(uploaded_file)
+                    st.image(image_to_process, caption="Uploaded Leaf Image", use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error loading image: {e}")
 
         st.markdown("---")
         predict_button = st.button("🔍 Analyze Leaf Image", type="primary", use_container_width=True)

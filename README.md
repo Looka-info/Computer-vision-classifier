@@ -208,27 +208,37 @@ ImageNet normalization constants: $\mu = [0.485, 0.456, 0.406]$, $\sigma = [0.22
 
 ## 8. Empirical Results & Model Comparison
 
-*(Populated after pipeline execution on test split)*
+Both models were evaluated on the exact same isolated held-out test split (**8,143 images**, 15% of dataset) on an NVIDIA GeForce GTX 1660 SUPER:
 
 | Model | Initialization | Total Params | Best Val Macro-F1 | Test Top-1 Acc | Test Top-3 Acc | Test Macro-F1 | Balanced Acc | Median Latency B1 (ms) | Throughput B16 (img/s) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Custom Baseline CNN** | Scratch | ~500K | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-| **ResNet-18 (Transfer)** | Pretrained (ImageNet) | 11.2M | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| **Custom Baseline CNN** | Scratch | 464,454 | 0.8575 | **89.33%** | 98.19% | 0.8645 | 89.69% | **2.53 ms** | **1,704.0** |
+| **ResNet-18 (Transfer)** | Pretrained (ImageNet-1k) | 11,196,006 | **0.9859** | **99.02%** | **99.94%** | **0.9864** | **98.87%** | 3.92 ms | 1,127.0 |
+
+*Detailed machine-readable metrics are saved in [reports/model_comparison.csv](file:///reports/model_comparison.csv).*
+
+### Key Takeaways from Empirical Comparison
+1. **Dramatic Generalization Boost:** Fine-tuned ResNet-18 reduced test error from **10.67%** down to **0.98%** (an order of magnitude error reduction from 869 misclassifications down to 80 out of 8,143 test images).
+2. **Top-3 Diagnostic Safety:** ResNet-18 achieved **99.94% Top-3 Accuracy**, meaning the ground-truth disease is almost invariably in the model's top three candidates.
+3. **Latency vs. Accuracy Tradeoff:** While the scratch CNN is slightly faster (2.53 ms vs. 3.92 ms), ResNet-18 comfortably delivers **255 FPS** on single-image inference and over **1,100 FPS** in batch mode on consumer GPU hardware, making it well-suited for real-time field applications.
 
 ---
 
 ## 9. Error Analysis & Diagnostics
 
-Key diagnostic visualizations generated automatically in `reports/figures/`:
-* `class_distribution.png`: Per-category sample frequencies illustrating dataset imbalance.
-* `resnet18_transfer_confusion_matrix.png`: Normalized confusion matrix across all 38 categories.
-* `resnet18_transfer_misclassified_grid.png`: Visual grid of actual misclassified test images showing true class, model prediction, and confidence score.
-* `resnet18_transfer_top_confusions.png`: Bar chart of the most frequently confused pairs of categories.
+All diagnostic figures are generated automatically in `reports/figures/`:
+* [class_distribution.png](file:///reports/figures/class_distribution.png): Complete 38-class frequency distribution showing class counts ranging from 275 (Potato Healthy) to over 5,000 (Soybean/Tomato).
+* [baseline_training_curves.png](file:///reports/figures/baseline_training_curves.png): Convergence curves for the scratch CNN over 4 epochs.
+* [resnet18_training_curves.png](file:///reports/figures/resnet18_training_curves.png): Two-stage progression (Stage A head training $\to$ Stage B residual block 4 fine-tuning).
+* [baseline_cnn_confusion_matrix.png](file:///reports/figures/baseline_cnn_confusion_matrix.png): Baseline normalized confusion matrix across all 38 categories.
+* [resnet18_transfer_confusion_matrix.png](file:///reports/figures/resnet18_transfer_confusion_matrix.png): High-resolution normalized confusion matrix for fine-tuned ResNet-18.
+* [resnet18_transfer_misclassified_grid.png](file:///reports/figures/resnet18_transfer_misclassified_grid.png): Visual grid of actual misclassified test images showing true class, model prediction, and confidence score.
+* [resnet18_transfer_top_confusions.png](file:///reports/figures/resnet18_transfer_top_confusions.png): Bar chart of the most frequently confused pairs of categories.
 
-### Diagnostic Takeaways
-1. **Visually Similar Pathology:** Diseases causing similar necrotic spot morphology (e.g. Tomato Early Blight vs. Tomato Target Spot) represent the primary confusion pairs.
-2. **Early-Stage vs. Healthy:** Very mild early-stage infections on otherwise green foliage present subtle visual cues that occasional false negatives confuse with healthy leaves.
-3. **Class Imbalance Impact:** Rare disease categories with fewer than 300 samples benefit substantially more from transfer learning than abundant classes (>2,000 samples).
+### Diagnostic Observations
+1. **Biological Pathogen Overlap:** The primary remaining confusion pairs occur between pathogens with near-identical necrotic symptoms (e.g. *Tomato Early Blight* vs. *Tomato Target Spot*, or *Corn Cercospora* vs. *Corn Northern Leaf Blight*).
+2. **Cross-Species Pathology:** *Phytophthora infestans* (Late Blight) affects both Tomato and Potato; misclassifications occasionally occur across these botanically related Solanaceae species under subtle lesions.
+3. **Confidence on False Positives:** Misclassified test samples frequently exhibit lower confidence scores (averaging 55–70%) compared to correct predictions (>98%), demonstrating that softmax probability thresholding can filter ambiguous field samples.
 
 ---
 

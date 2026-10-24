@@ -28,7 +28,8 @@ Early and accurate identification of agricultural plant diseases is vital to mit
 ## 2. Dataset Provenance & Specifications
 
 * **Dataset:** [PlantVillage Dataset](https://github.com/spMohanty/PlantVillage-Dataset) (Mohanty et al., 2016).
-* **Reference:** Mohanty, S.P., Hughes, D.P., & Salathé, M. (2016). *Using deep learning for image-based plant disease detection.* Frontiers in Plant Science, 7, 1419.
+* **Exact Distribution Source:** Acquired via [`scripts/download_dataset.py`](file:///scripts/download_dataset.py) from the open-access Hugging Face distribution [`mohanty/PlantVillage`](https://huggingface.co/datasets/mohanty/PlantVillage/resolve/main/data.zip), maintained by Sharada P. Mohanty.
+* **Academic Reference:** Mohanty, S.P., Hughes, D.P., & Salathé, M. (2016). *Using deep learning for image-based plant disease detection.* Frontiers in Plant Science, 7, 1419. [doi:10.3389/fpls.2016.01419](https://doi.org/10.3389/fpls.2016.01419).
 * **Dataset License:** Creative Commons Attribution-ShareAlike 3.0 Unported ([CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/)).
 * **Categories:** 38 distinct multiclass classes spanning 14 crop species:
   * *Apple:* Scab, Black rot, Cedar apple rust, Healthy
@@ -46,7 +47,8 @@ Early and accurate identification of agricultural plant diseases is vital to mit
   * *Strawberry:* Leaf scorch, Healthy
   * *Tomato:* Bacterial spot, Early blight, Late blight, Leaf Mold, Septoria leaf spot, Spider mites, Target Spot, Yellow Leaf Curl Virus, Mosaic virus, Healthy
 
-> **Note on Licences:** The code in this repository is distributed under the MIT License. The PlantVillage dataset has its own independent license terms (CC BY-SA 3.0).
+> [!IMPORTANT]
+> **Independent Licensing Notice:** The MIT License applied to this repository strictly covers the engineering software, custom model code, prediction APIs, training pipelines, and audit scripts written for PlantVision. The PlantVillage dataset content retains its own independent Creative Commons CC BY-SA 3.0 terms and is not automatically covered or relicensed under the repository's MIT License.
 
 ---
 
@@ -263,35 +265,41 @@ We audited all 8,143 held-out test predictions to verify whether model confidenc
 ---
 
 ### 9.2 Expected Calibration Error (ECE) and Multiclass Brier Score
-Model calibration was evaluated using 15 equal-width confidence bins across both validation and held-out test splits:
 
-$$\text{ECE} = \sum_{m=1}^{M} \frac{|B_m|}{N} \left| \text{acc}(B_m) - \text{conf}(B_m) \right|$$
+Calibration measures how well predicted softmax probabilities reflect true empirical likelihood. Two complementary metrics were evaluated:
 
-$$\text{Multiclass Brier Score} = \frac{1}{N} \sum_{i=1}^N \sum_{c=1}^C (p_{ic} - y_{ic})^2 \quad \in [0, 2]$$
+1. **Top-Label Expected Calibration Error (Top-Label ECE):** Evaluates whether the confidence of the top predicted class $\hat{p}_i = \max_c p_{ic}$ matches empirical accuracy across $M=15$ fixed equal-width confidence bins:
+   $$\text{Top-Label ECE} = \sum_{m=1}^{M} \frac{|B_m|}{N} \left| \text{acc}(B_m) - \text{conf}(B_m) \right|$$
+   *Note on Metric Dependence:* Top-Label ECE depends on the choice of bin count ($M=15$) and partitions $[0, 1]$ into equal widths of $1/15 \approx 0.0667$. It measures top-prediction confidence calibration rather than the full joint probability vector.
 
-| Split | Sample Count | Expected Calibration Error (ECE) | Maximum Calibration Error (MCE) | Multiclass Brier Score | Reliability Diagram |
+2. **Multiclass Brier Score:** A strictly proper scoring rule evaluating the entire multiclass probability vector without binning:
+   $$\text{Multiclass Brier Score} = \frac{1}{N} \sum_{i=1}^N \sum_{c=1}^C (p_{ic} - y_{ic})^2 \quad \in [0, 2]$$
+
+| Split | Sample Count | Top-Label ECE (15 Bins) | Maximum Calibration Error (MCE) | Multiclass Brier Score | Reliability Diagram |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Validation Split** | 8,143 | **0.00288** | 0.27087 | **0.01713** | [resnet18_validation_reliability_diagram.png](file:///reports/figures/resnet18_validation_reliability_diagram.png) |
 | **Held-Out Test Split** | 8,143 | **0.00364** | 0.26173 | **0.01503** | [resnet18_test_reliability_diagram.png](file:///reports/figures/resnet18_test_reliability_diagram.png) |
 
-*The fine-tuned ResNet-18 exhibits outstanding calibration ($ECE < 0.004$), meaning output probabilities closely match empirical accuracy.*
-
 ---
 
-### 9.3 Selective Classification (Rejection Gating)
-To protect agricultural stakeholders from false positives on borderline images, a confidence rejection mechanism was developed:
-* **Operating Threshold Selection:** Strict evaluation protocol (Priority 4) requires selecting $\tau^*$ **exclusively on validation data**.
-* **Validation Target:** Targeting $\ge 99.5\%$ selective accuracy on validation data selected $\tau^* = 0.72$ (Validation Coverage: 98.39%, Validation Selective Accuracy: 99.54%).
-* **Held-Out Test Evaluation at $\tau^* = 0.72$:**
-  * **Test Coverage:** **98.71%** (only 105 ambiguous samples, or 1.29%, referred to agronomists).
-  * **Test Selective Accuracy:** **99.53%** (misclassifications reduced from 80 down to 38 — a **52.5% error reduction**).
+### 9.3 Selective Classification (Confidence Rejection Gating)
+To explore trade-offs between coverage and diagnostic precision, a confidence rejection mechanism was audited:
+* **Operating Threshold Selection:** To preserve evaluation integrity (Priority 4), the rejection threshold $\tau^*$ was **derived strictly on validation data**.
+* **Validation Selection Procedure:** Sweeping candidate thresholds on validation predictions aiming for $\ge 99.5\%$ validation selective accuracy identified $\mathbf{\tau^* = 0.72}$ (Validation Coverage: 98.39%, Validation Selective Accuracy: 99.54%). Held-out test results were **not** used to tune or select this threshold.
+* **Held-Out Test Outcome at $\mathbf{\tau^* = 0.72}$:**
+  * **Images Flagged for Review:** Under $\tau^* = 0.72$, exactly **105 of 8,143 test images** (1.29% rejection rate) would be flagged for manual review.
+  * **Error Reduction vs. False Rejections:**
+    * **42 of the 105 rejected test images** were errors under the original model predictions.
+    * **63 of the 105 rejected test images** were correct predictions that happened to fall below the 0.72 confidence cutoff.
+    * **38 errors remained** among the 8,038 accepted images (selective test accuracy: $8,000 / 8,038 = \mathbf{99.53\%}$, down from 80 unfiltered errors).
+  * **Evaluation Precision:** Rejected images are **not** described as known ambiguities, and we make no claim that human agronomists reviewed them; they are purely algorithmic threshold rejections based on model confidence falling below 0.72.
 
 | Confidence Threshold ($\tau$) | Validation Coverage | Validation Accuracy | Test Coverage | Test Selective Accuracy | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **0.00 (Unfiltered)** | 100.00% | 98.88% | 100.00% | 99.02% | Standard baseline |
+| **0.00 (Unfiltered)** | 100.00% | 98.88% | 100.00% | 99.02% | Standard baseline (80 test errors) |
 | **0.50** | 99.83% | 98.98% | 99.74% | 99.11% | Minimal rejection |
 | **0.70** | 98.65% | 99.43% | 98.88% | 99.47% | High coverage |
-| **0.72 ($\tau^*$ Selected)** | **98.39%** | **99.54%** | **98.71%** | **99.53%** | **Optimal validation-selected threshold** |
+| **0.72 ($\tau^*$ Selected)** | **98.39%** | **99.54%** | **98.71%** | **99.53%** | **Validation-derived threshold (38 test errors remaining)** |
 | **0.80** | 97.75% | 99.60% | 98.01% | 99.66% | Conservative |
 | **0.90** | 96.33% | 99.77% | 96.48% | 99.81% | High precision |
 | **0.99** | 88.68% | 99.96% | 89.11% | 99.96% | Extreme certainty |
@@ -302,24 +310,34 @@ To protect agricultural stakeholders from false positives on borderline images, 
 
 ### 9.4 In-Distribution Confidence vs. Out-of-Distribution (OOD) Detection
 > [!IMPORTANT]
-> **Critical Distiction:** High in-distribution calibration on PlantVillage **does not equal reliable out-of-distribution (OOD) detection**. 
+> **Critical Distinction:** High in-distribution calibration on PlantVillage **does not equal reliable out-of-distribution (OOD) detection**. 
 > Standard deep neural networks with Softmax heads frequently produce high confidence (>90%) on completely foreign images (e.g., weeds, soil, non-plant items, hands) due to feature map activations on unfamiliar textures.
 > Safe deployment in agricultural hardware requires dedicated OOD detection (e.g., Mahalanobis distance in embedding space, energy-based OOD gating, or a background non-leaf class), which is documented as an essential future release requirement.
 
 ---
 
-## 10. Perceptual Near-Duplicate Audit Across Splits (Priority 3)
+## 10. Perceptual Near-Duplicate Audit Across Splits (Priority 1 Audit Resolution)
 
-The dataset was initially verified for zero exact byte duplicates via SHA-256 hashing. To audit potential visual near-duplicate leakage across splits, a 64-bit difference hash (`dHash`) audit was executed across **10,652 images**:
+The dataset was initially verified for zero exact byte duplicates via SHA-256 hashing (which pruned 21 identical files prior to splitting). To address audit coverage and ensure complete split isolation, an exhaustive perceptual near-duplicate scan was executed covering **100% of all 54,284 images** across train, validation, and test splits:
 
-* **Perceptual Hash Collisions Across Splits:** **0 collisions** ($d_{\text{Hamming}} = 0$).
-* **Candidate Near-Matches ($d_{\text{Hamming}} \le 1$):** **3 candidate pairs** identified:
-  * 2 pairs in `Corn_(maize)___Common_rust_` (train vs. test)
-  * 1 pair in `Strawberry___Leaf_scorch` (train vs. test)
-* **Visual Inspection & Pixel Verification:**
-  * Candidate pairs were reviewed and pixel Mean Absolute Error (MAE) was calculated: Corn pair MAE = **42.98**; Strawberry pair MAE = **24.70**.
-  * Inspection confirmed that the candidate pairs are **distinct biological leaves** that share similar overall leaf orientations against neutral background cards, **not duplicated photographs of the same leaf**.
-* **Audit Verdict:** No cross-split visual duplication exists. Split manifests remain 100% leak-free and valid. Audit log saved in [reports/near_duplicates_audit.csv](file:///reports/near_duplicates_audit.csv).
+### 10.1 Audit Coverage Reconciliation
+* An earlier draft report noted a count of 10,652 images due to an initial development sampling flag (`--sample-per-class 100`).
+* The audit has now been expanded to the **full dataset (54,284 images)**:
+  * **Train:** 37,998 images
+  * **Validation:** 8,143 images
+  * **Test:** 8,143 images
+* **Methodology:** 64-bit difference hashing (`dHash`) indexed via Multi-Index Hashing (MIH) into four 16-bit blocks. This guaranteed exhaustive evaluation of all $2,290,490$ candidate cross-split pairs sharing at least one 16-bit block.
+
+### 10.2 Empirical Findings & Split Breakdown
+* **Exact Perceptual Collisions ($d_{\text{Hamming}} = 0$):** **6 pairs** across splits. All 6 pairs were inspected and exhibited pixel Mean Absolute Error (MAE) between 20.36 and 48.09, confirming they are distinct physical leaves photographed in standard vertical orientations against neutral studio backgrounds.
+* **Near-Matches ($d_{\text{Hamming}} \le 1$):** **23 pairs** across splits.
+* **Likely Duplicate Review (Pixel MAE $\le 15.0$):**
+  * **Train vs. Test Leakage:** **0 pairs**. Every candidate pair between train and test had MAE $> 20.0$; manual review confirms distinct biological leaves with different lesion distributions and margins.
+  * **Train vs. Val Leakage:** **1 pair** in `Soybean___healthy` (`RS_HL 6169` in train vs `6170` in val, sequential file numbers, pixel MAE = 15.30).
+  * **Val vs. Test Overlap:** **1 pair** in `Cherry_(including_sour)___Powdery_mildew` (`FREC_Pwd.M 0323` in test vs `0324` in val, pixel MAE = 5.64, representing a sequential burst capture of the same leaf specimen). Crucially, **neither image was present in the training set**, meaning the model never saw this specimen during training.
+
+### 10.3 Split Integrity Verdict
+Zero training-to-test duplicate leakage exists across all 54,284 images. Test performance is uninflated by duplicate training samples, and the existing split manifests in [`data/splits/`](file:///data/splits/) are preserved without requiring retraining. Full records are archived in [reports/near_duplicates_audit.csv](file:///reports/near_duplicates_audit.csv) and [reports/near_duplicates_summary.json](file:///reports/near_duplicates_summary.json).
 
 ---
 

@@ -1,0 +1,21 @@
+{
+  "scanned_counts": {
+    "train": 37998,
+    "val": 8143,
+    "test": 8143,
+    "total": 54284
+  },
+  "audit_coverage_percent": 100.0,
+  "max_hamming_distance_evaluated": 1,
+  "candidate_pairs_checked": 2290490,
+  "exact_perceptual_collisions_cross_split": 6,
+  "near_matches_cross_split": 23,
+  "likely_duplicates_breakdown": {
+    "train_vs_test_leakage": 0,
+    "train_vs_val_leakage": 1,
+    "val_vs_test_overlap": 1,
+    "total_likely_duplicates": 2
+  },
+  "train_to_test_leakage_free": true,
+  "split_integrity_verified": true
+}

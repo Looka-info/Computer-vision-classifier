@@ -86,3 +86,34 @@ def test_inspect_image_file_valid_and_invalid(tmp_path: Path):
     is_valid_c, err_c, _, _ = inspect_image_file(corrupt_p)
     assert is_valid_c is False
     assert err_c is not None
+
+
+def test_dhash_and_hamming_distance():
+    """Verify perceptual difference hash calculation and Hamming distance properties."""
+    from PIL import Image
+    import numpy as np
+    from plantvision.data_validation import compute_dhash, hamming_distance
+
+    # Create two identical images
+    arr1 = np.zeros((100, 100, 3), dtype=np.uint8)
+    arr1[20:80, 20:80] = 255
+    img1 = Image.fromarray(arr1)
+    img2 = Image.fromarray(arr1.copy())
+
+    h1 = compute_dhash(img1)
+    h2 = compute_dhash(img2)
+    assert h1 == h2
+    assert hamming_distance(h1, h2) == 0
+
+    # Create distinct image with inverted gradient
+    arr3 = np.zeros((100, 100, 3), dtype=np.uint8)
+    for i in range(100):
+        arr3[:, i] = i * 2
+    img3 = Image.fromarray(arr3)
+    h3 = compute_dhash(img3)
+
+    assert hamming_distance(h1, h3) > 0
+    # Reflexive & symmetric properties
+    assert hamming_distance(h1, h1) == 0
+    assert hamming_distance(h1, h3) == hamming_distance(h3, h1)
+

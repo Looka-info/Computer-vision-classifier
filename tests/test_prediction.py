@@ -90,3 +90,27 @@ def test_prediction_from_pil_and_bytes(dummy_checkpoint: Path):
     img.save(buf, format="JPEG")
     res_bytes = predictor.predict(buf.getvalue(), top_k=2)
     assert res_bytes.top_class in predictor.classes
+
+
+def test_prediction_timing_breakdown_and_warmup(dummy_checkpoint: Path, tmp_path: Path):
+    """Verify predictor generates granular timing breakdown and warmup functions correctly."""
+    predictor = PlantPredictor(checkpoint_path=dummy_checkpoint, device="cpu", warmup=True)
+    assert predictor.init_time_ms > 0
+
+    img = Image.new("RGB", (64, 64), color=(50, 120, 20))
+    res = predictor.predict(img, top_k=2)
+
+    assert res.timing_breakdown is not None
+    tb = res.timing_breakdown
+    assert "checkpoint_init_ms" in tb
+    assert "preprocessing_ms" in tb
+    assert "model_inference_ms" in tb
+    assert "postprocessing_ms" in tb
+    assert "end_to_end_pipeline_ms" in tb
+    assert tb["model_inference_ms"] > 0
+    assert tb["end_to_end_pipeline_ms"] > 0
+
+    d = res.to_dict()
+    assert "timing_breakdown_ms" in d
+    assert d["timing_breakdown_ms"]["model_inference_ms"] == round(tb["model_inference_ms"], 2)
+

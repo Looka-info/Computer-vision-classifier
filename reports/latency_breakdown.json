@@ -1,0 +1,68 @@
+{
+  "resnet18_transfer": {
+    "model_name": "resnet18_transfer",
+    "architecture": "ResNet",
+    "checkpoint_file": "models\\resnet18_transfer_best.pt",
+    "image_file": "data\\sample_images\\tomato_late_blight.jpg",
+    "device": "cuda",
+    "hardware": {
+      "device": "cuda",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "processor": "AMD64 Family 25 Model 33 Stepping 2, AuthenticAMD",
+      "python_version": "3.12.10",
+      "torch_version": "2.6.0+cu124",
+      "gpu_name": "NVIDIA GeForce GTX 1660 SUPER",
+      "gpu_capability": [
+        7,
+        5
+      ],
+      "cuda_version": "12.4"
+    },
+    "measurements_ms": {
+      "1_checkpoint_load_and_init": 260.79,
+      "2_image_decode_and_preprocess": 6.07,
+      "3_cold_first_forward_pass": 230.74,
+      "4_warm_steady_state_forward_median": 3.5,
+      "4_warm_steady_state_forward_p95": 5.42,
+      "4_warm_steady_state_forward_min": 3.21,
+      "4_warm_steady_state_forward_max": 7.96,
+      "5_postprocessing_softmax_and_topk": 11.57,
+      "end_to_end_pipeline_warm_single_image": 21.14,
+      "end_to_end_pipeline_cold_including_model_load": 509.17
+    },
+    "throughput_img_per_sec": 285.98
+  },
+  "baseline_cnn": {
+    "model_name": "baseline_cnn",
+    "architecture": "CustomBaselineCNN",
+    "checkpoint_file": "models\\baseline_cnn_best.pt",
+    "image_file": "data\\sample_images\\tomato_late_blight.jpg",
+    "device": "cuda",
+    "hardware": {
+      "device": "cuda",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "processor": "AMD64 Family 25 Model 33 Stepping 2, AuthenticAMD",
+      "python_version": "3.12.10",
+      "torch_version": "2.6.0+cu124",
+      "gpu_name": "NVIDIA GeForce GTX 1660 SUPER",
+      "gpu_capability": [
+        7,
+        5
+      ],
+      "cuda_version": "12.4"
+    },
+    "measurements_ms": {
+      "1_checkpoint_load_and_init": 9.66,
+      "2_image_decode_and_preprocess": 1.97,
+      "3_cold_first_forward_pass": 5.17,
+      "4_warm_steady_state_forward_median": 1.02,
+      "4_warm_steady_state_forward_p95": 1.53,
+      "4_warm_steady_state_forward_min": 0.86,
+      "4_warm_steady_state_forward_max": 2.11,
+      "5_postprocessing_softmax_and_topk": 0.16,
+      "end_to_end_pipeline_warm_single_image": 3.15,
+      "end_to_end_pipeline_cold_including_model_load": 16.96
+    },
+    "throughput_img_per_sec": 977.9
+  }
+}

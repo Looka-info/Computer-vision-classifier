@@ -54,6 +54,31 @@ def compute_file_hash(path: Path | str, chunk_size: int = 65536) -> str:
     return hasher.hexdigest()
 
 
+def compute_dhash(img: Image.Image, hash_size: int = 8) -> int:
+    """Compute 64-bit difference hash (dHash) for visual near-duplicate detection.
+
+    Args:
+        img: PIL Image to hash.
+        hash_size: Grid size (default 8 produces 8x8 = 64-bit hash).
+
+    Returns:
+        64-bit integer representation of gradient structure.
+    """
+    resized = img.resize((hash_size + 1, hash_size), Image.Resampling.BILINEAR).convert("L")
+    pixels = np.asarray(resized)
+    diff = pixels[:, 1:] > pixels[:, :-1]
+    val = 0
+    for idx, bit in enumerate(diff.flatten()):
+        if bit:
+            val |= 1 << idx
+    return val
+
+
+def hamming_distance(h1: int, h2: int) -> int:
+    """Calculate bitwise Hamming distance between two 64-bit integers."""
+    return bin(h1 ^ h2).count("1")
+
+
 def inspect_image_file(path: Path) -> Tuple[bool, Optional[str], Optional[Tuple[int, int]], Optional[int]]:
     """Attempt to open and verify image file, extracting metadata.
 

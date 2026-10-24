@@ -1,0 +1,4 @@
+type,hamming_distance,split_a,path_a,class_a,split_b,path_b,class_b
+near_duplicate,1,train,data\raw\PlantVillage\Corn_(maize)___Common_rust_\RS_Rust 1814.JPG,Corn_(maize)___Common_rust_,test,data\raw\PlantVillage\Corn_(maize)___Common_rust_\RS_Rust 2534.JPG,Corn_(maize)___Common_rust_
+near_duplicate,1,train,data\raw\PlantVillage\Corn_(maize)___Common_rust_\RS_Rust 1814.JPG,Corn_(maize)___Common_rust_,test,data\raw\PlantVillage\Corn_(maize)___Common_rust_\RS_Rust 2527.JPG,Corn_(maize)___Common_rust_
+near_duplicate,1,train,data\raw\PlantVillage\Strawberry___Leaf_scorch\97fc0a8d-280a-44e2-811d-71419f9a5526___RS_L.Scorch 1277.JPG,Strawberry___Leaf_scorch,test,data\raw\PlantVillage\Strawberry___Leaf_scorch\cb060904-20f5-4192-b4bf-83ee54be17f0___RS_L.Scorch 1287.JPG,Strawberry___Leaf_scorch

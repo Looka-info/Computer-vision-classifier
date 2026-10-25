@@ -155,8 +155,8 @@ def test_evaluation_splits_zero_specimen_overlap():
     assert len(overlap) == 0, f"Found {len(overlap)} overlapping specimens between val and test: {overlap}"
 
 
-def test_cherry_powdery_mildew_leaf5_isolation():
-    """Verify that Cherry Powdery Mildew leaf 5.0 images do not span both validation and test."""
+def test_multi_image_specimen_isolation():
+    """Verify that multi-image specimens do not cross validation and test partitions."""
     import json
     import pandas as pd
 
@@ -191,12 +191,12 @@ def test_cherry_powdery_mildew_leaf5_isolation():
 
     # Must NOT occur in both splits
     assert not (val_count > 0 and test_count > 0), (
-        f"Cherry leaf 5.0 spans both splits! Val count: {val_count}, Test count: {test_count}"
+        f"Specimen {target_leaf} spans multiple evaluation splits! Val: {val_count}, Test: {test_count}"
     )
 
 
-def test_near_duplicates_audit_reconciliation():
-    """Verify that near duplicates summary JSON matches the audit CSV record counts exactly."""
+def test_near_duplicates_summary_integrity():
+    """Verify that near-duplicate summary metrics match record-level audit counts."""
     import json
     import pandas as pd
 

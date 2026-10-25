@@ -65,7 +65,7 @@ def run_calibration_audit(config_path: str | None = None) -> dict:
     model.to(device)
 
     print("=" * 70)
-    print("PLANTVISION CALIBRATION & RELIABILITY AUDIT (ResNet-18)")
+    print("PLANTVISION CALIBRATION & RELIABILITY ASSESSMENT")
     print("=" * 70)
 
     # 1. Validation predictions
@@ -105,10 +105,10 @@ def run_calibration_audit(config_path: str | None = None) -> dict:
     conf_dist_path = figures_dir / "resnet18_confidence_distribution.png"
     plot_confidence_distribution(test_targets, test_probs, conf_dist_path, title="ResNet-18 Test Set Confidence Distribution: Correct vs Misclassified")
 
-    # 5. Selective Classification: Pick threshold on VALIDATION data only
+    # Selective Classification: Calibration threshold selection
     print("\n--- Selective Classification (Rejection Gating) ---")
     chosen_tau = select_threshold_from_validation(val_targets, val_probs, target_accuracy=0.995)
-    print(f"Selected Rejection Threshold (Derived on Validation Data): tau* = {chosen_tau:.2f}")
+    print(f"Optimal Rejection Threshold: tau* = {chosen_tau:.2f}")
 
     # Evaluate sweep on both val and test
     sweep_thresholds = np.array([0.0, 0.50, 0.60, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 0.98, 0.99])
@@ -122,10 +122,10 @@ def run_calibration_audit(config_path: str | None = None) -> dict:
     test_cov_at_tau = float(np.mean(accepted_test))
     test_acc_at_tau = float(np.mean(test_preds[accepted_test] == test_targets[accepted_test]))
 
-    print(f"\nHeld-Out Test Performance at Validation-Selected tau* ({chosen_tau:.2f}):")
+    print(f"\nHeld-Out Test Performance at tau* = {chosen_tau:.2f}:")
     print(f"  Test Coverage:          {test_cov_at_tau * 100:.2f}% ({np.sum(accepted_test):,} of {len(test_targets):,} images)")
-    print(f"  Test Rejection Rate:    {(1 - test_cov_at_tau) * 100:.2f}% ({np.sum(~accepted_test)} images referred to expert)")
-    print(f"  Test Selective Accuracy:{test_acc_at_tau * 100:.2f}% (Baseline without rejection: {np.mean(test_preds == test_y_all if 'test_y_all' in locals() else test_preds == test_targets) * 100:.2f}%)")
+    print(f"  Test Rejection Rate:    {(1 - test_cov_at_tau) * 100:.2f}% ({np.sum(~accepted_test):,} rejected)")
+    print(f"  Test Selective Accuracy:{test_acc_at_tau * 100:.2f}% (Baseline unfiltered: {float(np.mean(test_preds == test_targets)) * 100:.2f}%)")
 
     # Save selective classification table
     comp_df = pd.DataFrame({

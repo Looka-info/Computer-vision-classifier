@@ -115,8 +115,8 @@ def main():
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 📋 About PlantVision")
     st.sidebar.info(
-        "PlantVision is an end-to-end Computer Vision project demonstrating deep learning "
-        "transfer learning vs. scratch CNN baselines on the PlantVillage dataset."
+        "PlantVision benchmarks fine-tuned deep transfer learning (ResNet-18) against "
+        "custom scratch CNN architectures across 38 crop pathologies in the PlantVillage dataset."
     )
 
     # Layout: Two columns (Input & Preview / Results)
@@ -212,13 +212,13 @@ def main():
 
     # Model Limitations & Disclaimers
     st.markdown("---")
-    st.markdown("### ⚠️ Model Limitations and Agricultural Disclaimer")
+    st.markdown("### ⚠️ Agricultural Deployment Advisory")
     st.warning(
-        "**Important Advisory:** This model was trained and evaluated on controlled research datasets "
-        "(such as the public PlantVillage repository). Real-world field conditions—including complex backgrounds, "
-        "variable sunlight, shadows, wet foliage, and multi-disease coinfections—may significantly impact prediction reliability.\n\n"
-        "This tool is an educational machine-learning demonstration and is **not a definitive agricultural diagnosis**. "
-        "Do not apply chemical treatments, fungicides, or pesticides without consultation from an agronomist or local agricultural extension service."
+        "**Field Notice:** This model was evaluated on controlled research datasets. Real-world field conditions "
+        "(variable natural sunlight, shadows, wet foliage, soil occlusions, and multi-disease coinfections) "
+        "can influence model behavior.\n\n"
+        "PlantVision is a research and diagnostic screening system. Field predictions should be corroborated "
+        "with certified agronomic extension specialists before administering chemical treatments or fungicides."
     )
 
 

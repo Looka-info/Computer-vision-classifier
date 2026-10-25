@@ -34,28 +34,28 @@ def main() -> None:
 
     python_exe = sys.executable
 
-    # Step 1: Download dataset if needed
+    # Acquire dataset if missing
     raw_dir = Path("data/raw/PlantVillage")
     if not args.skip_download:
         if not raw_dir.exists() or len(list(raw_dir.glob("*"))) < 3:
             run_command([python_exe, "scripts/download_dataset.py"], "Acquiring PlantVillage Dataset")
 
-    # Step 2: Validate and prepare splits
+    # Validate data and generate stratified splits
     run_command([python_exe, "scripts/prepare_dataset.py"], "Validating and Preparing Dataset Splits")
 
-    # Step 3: Train scratch baseline
+    # Train scratch baseline CNN
     base_cmd = [python_exe, "scripts/train_baseline.py"]
     if args.quick:
         base_cmd.extend(["--epochs", "2", "--batch-size", "16"])
     run_command(base_cmd, "Training Scratch Baseline CNN")
 
-    # Step 4: Train transfer learning ResNet-18
+    # Train transfer learning ResNet-18
     tl_cmd = [python_exe, "scripts/train_transfer_learning.py"]
     if args.quick:
         tl_cmd.extend(["--stage-a-epochs", "1", "--stage-b-epochs", "1", "--batch-size", "16"])
     run_command(tl_cmd, "Training ResNet-18 Transfer Learning")
 
-    # Step 5: Evaluate all models on held-out test split
+    # Evaluate models on held-out test split
     run_command([python_exe, "scripts/evaluate_model.py", "--all"], "Evaluating Models on Held-Out Test Set")
 
     print("\n" + "=" * 70)

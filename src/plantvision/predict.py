@@ -159,7 +159,7 @@ class PlantPredictor:
         Returns:
             PredictionResult with top prediction, scores, and granular latency.
         """
-        # Step 1: Image loading & preprocessing
+        # Preprocess input image
         t_prep_start = time.perf_counter()
         pil_img: Image.Image
         if isinstance(image_input, (str, Path)):
@@ -191,7 +191,7 @@ class PlantPredictor:
         t_prep_end = time.perf_counter()
         prep_ms = (t_prep_end - t_prep_start) * 1000.0
 
-        # Step 2: Model forward pass (inference)
+        # Model forward pass
         t_infer_start = time.perf_counter()
         with torch.inference_mode():
             logits = self.model(tensor)
@@ -200,7 +200,7 @@ class PlantPredictor:
         t_infer_end = time.perf_counter()
         infer_ms = (t_infer_end - t_infer_start) * 1000.0
 
-        # Step 3: Postprocessing (Softmax, Top-k, explanations)
+        # Postprocessing: Softmax and top-k selection
         t_post_start = time.perf_counter()
         probs = torch.softmax(logits, dim=1).squeeze(0).cpu().numpy()
         k = min(top_k, self.num_classes)
@@ -210,12 +210,7 @@ class PlantPredictor:
         top_class, top_score = top_predictions[0]
 
         all_scores = {self.classes[i]: float(probs[i]) for i in range(self.num_classes)}
-
-        explanation = (
-            f"Predicted category: {top_class.replace('___', ' ')} with model score {top_score:.2%}. "
-            f"Note: Softmax scores represent relative model confidence on known training distributions, "
-            f"not calibrated epidemiological diagnosis probabilities."
-        )
+        explanation = f"{top_class.replace('___', ' ')} ({top_score:.2%})"
         t_post_end = time.perf_counter()
         post_ms = (t_post_end - t_post_start) * 1000.0
 

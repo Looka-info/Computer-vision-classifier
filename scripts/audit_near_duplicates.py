@@ -126,7 +126,7 @@ def audit_full_dataset(
     print(f"  - Test:  {split_counts['test']:,}")
     print(f"  -> Total: {split_counts['total']:,}")
 
-    # Step 1: Compute or load all hashes
+    # Compute or load perceptual hashes
     hash_dict = compute_hashes_for_dataset(
         file_paths=combined["file_path"].tolist(),
         cache_path=cache_path,
@@ -134,10 +134,8 @@ def audit_full_dataset(
     )
     combined["dhash"] = combined["file_path"].map(hash_dict)
 
-    # Step 2: Multi-Index Hashing for exhaustive, fast near-duplicate retrieval
-    # Divide 64-bit dHash into 4 chunks of 16 bits.
-    # By Generalized Pigeonhole Principle, if dist(h1, h2) <= 3, they MUST match on >= 1 chunk.
-    print(f"\nBuilding Multi-Index Hash tables across all {total_images:,} images...")
+    # Multi-Index Hashing indexing across 4 x 16-bit chunks
+    print(f"\nBuilding Multi-Index Hash tables across {total_images:,} images...")
     chunk_tables: List[Dict[int, List[int]]] = [defaultdict(list) for _ in range(4)]
 
     hashes = combined["dhash"].to_numpy(dtype=np.uint64)
@@ -277,7 +275,7 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     print("=" * 70)
-    print("PLANTVISION SCALABLE PERCEPTUAL NEAR-DUPLICATE AUDIT (100% COVERAGE)")
+    print("PLANTVISION PERCEPTUAL NEAR-DUPLICATE ANALYSIS")
     print("=" * 70)
 
     matches_df, summary = audit_full_dataset(
@@ -288,9 +286,9 @@ def main() -> None:
     )
 
     print("\n" + "=" * 70)
-    print("AUDIT FINDINGS SUMMARY")
+    print("SUMMARY")
     print("=" * 70)
-    print(f"Total Images Audited:                     {summary['scanned_counts']['total']:,} (100% of dataset)")
+    print(f"Total Images Evaluated:                   {summary['scanned_counts']['total']:,}")
     print(f"  - Train:                                {summary['scanned_counts']['train']:,}")
     print(f"  - Val:                                  {summary['scanned_counts']['val']:,}")
     print(f"  - Test:                                 {summary['scanned_counts']['test']:,}")

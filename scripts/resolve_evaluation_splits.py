@@ -1,16 +1,4 @@
-"""Resolve validation-test same-leaf specimen overlap via grouped evaluation splitting.
-
-This script:
-1. Maps physical leaf specimens from official PlantVillage leaf-map.json metadata.
-2. Identifies the Cherry Powdery Mildew leaf 5.0 pair and all other overlapping evaluation specimens.
-3. Preserves train.csv (37,998 images) to maintain training integrity and avoid train-to-test leakage.
-4. Partitions all 16,286 evaluation images (val + test) using grouped assignment:
-   - All images belonging to any physical leaf entity occur in exactly ONE evaluation split (val or test).
-   - Resolves the Cherry Powdery Mildew leaf 5.0 pair so all its evaluation images are in val.
-   - Balances split sizes (val: 8,153, test: 8,133) and preserves all 38 classes with <=1 image delta.
-5. Audits cross-split physical leaf specimen overlaps and reports unmapped limitations.
-6. Writes updated val.csv and test.csv split manifests.
-"""
+"""Grouped evaluation partitioning to ensure physical specimen isolation between validation and test splits."""
 
 from __future__ import annotations
 
@@ -182,23 +170,10 @@ def main() -> None:
     
     # Audit original overlaps
     orig_overlaps = audit_leaf_overlaps(train_mapped, val_mapped, test_mapped)
-    print("\n--- Original Random-Split Leaf Specimen Overlaps ---")
+    print("\n--- Specimen Overlaps in Initial Splits ---")
     print(f"  Train vs. Val overlapping leaf IDs:  {orig_overlaps['train_val_overlap']:,}")
     print(f"  Train vs. Test overlapping leaf IDs: {orig_overlaps['train_test_overlap']:,}")
-    print(f"  Val vs. Test overlapping leaf IDs:   {orig_overlaps['val_test_overlap']:,}  <-- [Source of Cherry pair leakage]")
-    
-    # Specific inspection of Cherry Powdery Mildew leaf 5.0
-    c5_leaf_id = "Cherry_(including_sour)___Powdery_mildew:::5.0"
-    c5_rows = all_mapped[all_mapped["leaf_id"] == c5_leaf_id]
-    print(f"\nSpecimen Check: {c5_leaf_id}")
-    print(f"  Total photos in dataset: {len(c5_rows)}")
-    c5_orig_splits = {
-        "train": len(train_mapped[train_mapped["leaf_id"] == c5_leaf_id]),
-        "val": len(val_mapped[val_mapped["leaf_id"] == c5_leaf_id]),
-        "test": len(test_mapped[test_mapped["leaf_id"] == c5_leaf_id]),
-    }
-    print(f"  Original split distribution: {c5_orig_splits}")
-    print("  Evidence: FREC_Pwd.M 0324 in val and FREC_Pwd.M 0323 in test are identical physical specimen (leaf 5.0).")
+    print(f"  Val vs. Test overlapping leaf IDs:   {orig_overlaps['val_test_overlap']:,}")
     
     # Combine val and test to form evaluation pool
     eval_orig = pd.concat([val_orig, test_orig], ignore_index=True)
@@ -214,23 +189,15 @@ def main() -> None:
     
     new_overlaps = audit_leaf_overlaps(train_mapped, val_new_mapped, test_new_mapped)
     
-    print("\n--- Corrected Grouped-Evaluation Split Sizes & Balances ---")
-    print(f"  Train:      {len(train_orig):,} ({len(train_orig)/total_images*100:.2f}%) [PRESERVED - 0 changes]")
+    print("\n--- Grouped Evaluation Split Sizes & Balance ---")
+    print(f"  Train:      {len(train_orig):,} ({len(train_orig)/total_images*100:.2f}%)")
     print(f"  Validation: {len(val_new):,} ({len(val_new)/total_images*100:.2f}%)")
     print(f"  Test:       {len(test_new):,} ({len(test_new)/total_images*100:.2f}%)")
     
-    print("\n--- Corrected Specimen Overlaps ---")
-    print(f"  Val vs. Test overlapping leaf IDs:   {new_overlaps['val_test_overlap']}  <-- [ELIMINATED: ZERO LEAF OVERLAP]")
-    print(f"  Train vs. Val overlapping leaf IDs:  {new_overlaps['train_val_overlap']:,} [Historical benchmark burst frames]")
-    print(f"  Train vs. Test overlapping leaf IDs: {new_overlaps['train_test_overlap']:,} [Historical benchmark burst frames]")
-    
-    c5_new_val = len(val_new_mapped[val_new_mapped["leaf_id"] == c5_leaf_id])
-    c5_new_test = len(test_new_mapped[test_new_mapped["leaf_id"] == c5_leaf_id])
-    print(f"\nSpecimen Check after Grouped Evaluation Split: {c5_leaf_id}")
-    print(f"  Val occurrences:  {c5_new_val}")
-    print(f"  Test occurrences: {c5_new_test}")
-    print("  -> All 9 evaluation images consolidated into EXACTLY ONE split (validation).")
-    print("  -> Zero same-leaf overlap between validation and test.")
+    print("\n--- Specimen Overlaps After Grouping ---")
+    print(f"  Val vs. Test overlapping leaf IDs:   {new_overlaps['val_test_overlap']}")
+    print(f"  Train vs. Val overlapping leaf IDs:  {new_overlaps['train_val_overlap']:,}")
+    print(f"  Train vs. Test overlapping leaf IDs: {new_overlaps['train_test_overlap']:,}")
     
     # Verify class balance across all 38 classes
     class_diffs = []
@@ -239,7 +206,7 @@ def main() -> None:
         t_c = len(test_new[test_new["class_name"] == cname])
         class_diffs.append(abs(v_c - t_c))
         
-    print(f"\nClass Coverage & Balance across all 38 classes:")
+    print(f"\nClass Coverage & Balance:")
     print(f"  Classes represented in Val:  {val_new['class_name'].nunique()}/38")
     print(f"  Classes represented in Test: {test_new['class_name'].nunique()}/38")
     print(f"  Max count difference between Val and Test per class: {max(class_diffs)} image")
